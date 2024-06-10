@@ -3,7 +3,7 @@
 	import {
 		collection,
 		addDoc,
-		getDocs,
+		onSnapshot,
 		query,
 		orderBy,
 		deleteDoc,
@@ -16,7 +16,27 @@
 	} from 'firebase/auth';
 	import { writable } from 'svelte/store';
 	import { fade } from 'svelte/transition';
-	import { marked } from 'marked';
+
+	import MarkdownIt from 'markdown-it';
+	import hljs from 'highlight.js';
+	import 'highlight.js/styles/an-old-hope.css';
+
+	const md = new MarkdownIt({
+		highlight: function (str: any, lang: any) {
+			if (lang && hljs.getLanguage(lang)) {
+				try {
+					return hljs.highlight(str, { language: lang }).value;
+				} catch (__) {}
+			}
+
+			// Try automatic language detection
+			try {
+				return hljs.highlightAuto(str).value;
+			} catch (__) {}
+
+			return ''; // use external default escaping
+		},
+	});
 
 	let messages: any = [];
 	let newMessage = '';
@@ -27,15 +47,15 @@
 		fetchMessages();
 	});
 
-	async function fetchMessages() {
+	function fetchMessages() {
 		const q = query(collection(db, 'messages'), orderBy('timestamp'));
-		const querySnapshot = await getDocs(q);
-		messages = querySnapshot.docs.map((doc) => ({
-			id: doc.id,
-			...doc.data(),
-		}));
+		onSnapshot(q, (querySnapshot) => {
+			messages = querySnapshot.docs.map((doc: any) => ({
+				id: doc.id,
+				...doc.data(),
+			}));
+		});
 	}
-
 	async function sendMessage() {
 		if (newMessage.trim() !== '' && user) {
 			await addDoc(collection(db, 'messages'), {
@@ -60,10 +80,13 @@
 	async function signOutUser() {
 		await signOut(auth);
 	}
+
 	let styleStore = writable(localStorage.getItem('style') || 'dark');
 	styleStore.subscribe((value) => {
 		localStorage.setItem('style', value);
 	});
+
+    let form: HTMLFormElement;
 </script>
 
 <div class="theme-buttons">
@@ -87,17 +110,21 @@
 </div>
 
 <main>
-	<form on:submit|preventDefault={sendMessage}>
-		<textarea
-			rows="2"
-			bind:value={newMessage}
-			placeholder={
-`Type a message and hit send!
-you can use any markdown feature you want`
-            }
-		/>
-		<button type="submit">Send</button>
-	</form>
+    <form on:submit|preventDefault={sendMessage} bind:this={form}>
+        <textarea
+            rows="2"
+            bind:value={newMessage}
+            placeholder={`Type a message and hit send!
+you can use any markdown feature you want`}
+            on:keydown={(e) => {
+                if ((e.ctrlKey || e.shiftKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    form.dispatchEvent(new Event('submit'));
+                }
+            }}
+        />
+        <button type="submit">Send</button>
+    </form>
 
 	<ul>
 		{#each messages as message (message.timestamp)}
@@ -114,7 +141,7 @@ you can use any markdown feature you want`
 						>
 					{/if}
 				</div>
-				<p>{@html marked(message.text)}</p>
+				<div>{@html md.render(message.text)}</div>
 				<small>{new Date(message.timestamp).toLocaleString()}</small>
 			</li>
 		{/each}
@@ -150,6 +177,12 @@ you can use any markdown feature you want`
 {/if}
 
 <style>
+	:global(pre) {
+		background-color: var(--background-color);
+		padding: 1em;
+		border-radius: 5px;
+		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+	}
 	:root {
 		--background-color: #121212;
 		--color: #fff;
@@ -159,8 +192,7 @@ you can use any markdown feature you want`
 		--list-item-background-color: #333;
 		--name-color: #fff;
 		--email-color: #888;
-		scrollbar-color: var(--accent-color)
-			var(--input-background-color);
+		scrollbar-color: var(--accent-color) var(--input-background-color);
 		scrollbar-width: thin;
 		scroll-behavior: smooth;
 	}
@@ -189,9 +221,9 @@ you can use any markdown feature you want`
 		background-color: var(--input-background-color);
 		color: var(--color);
 		font-family: 'Roboto', Arial, sans-serif;
-        font-size: 1em;
+		font-size: 1em;
 		resize: vertical;
-        scrollbar-width: thin;
+		scrollbar-width: thin;
 		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 	}
 	textarea:focus {
@@ -221,9 +253,9 @@ you can use any markdown feature you want`
 		border-radius: 4px;
 		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.26);
 	}
-    :global(a){
-        color: var(--accent-color);
-    }
+	:global(a) {
+		color: var(--accent-color);
+	}
 	.message-header {
 		display: grid;
 		grid-row: 1fr 1fr;
