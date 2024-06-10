@@ -2,19 +2,21 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": {
-    "public": "public",
+    "source": "hosting",
+    "site": "messenger-mc",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "frameworksBackend": {
+      "region": "europe-west1"
+    }
   },
   "emulators": {
     "auth": {
@@ -32,8 +34,21 @@
     "hosting": {
       "port": 5000
     },
+    "pubsub": {
+      "port": 8085
+    },
+    "storage": {
+      "port": 9199
+    },
+    "eventarc": {
+      "port": 9299
+    },
+    "dataconnect": {
+      "port": 9399
+    },
     "ui": {
-      "enabled": true
+      "enabled": true,
+      "port": 1234
     },
     "singleProjectMode": true
   }
